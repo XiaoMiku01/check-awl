@@ -1,0 +1,131 @@
+// ==UserScript==
+// @name         B站阿瓦隆检测工具
+// @namespace    https://space.bilibili.com/32957695
+// @version      0.1.2
+// @description  用于检查评论是否被阿瓦隆拦截屏蔽
+// @author       晓轩iMIKU
+// @license MIT
+// @compatible   chrome 80 or later
+// @compatible   edge 80 or later
+// @compatible   firefox 74 or later
+// @compatible   safari 13.1 or later
+// @match        https://*.bilibili.com/*
+// @icon         https://www.google.com/s2/favicons?domain=bilibili.com
+
+// @grant        none
+// ==/UserScript==
+class XMLHttp {
+    request = function (param) { };
+    response = function (param) { };
+}
+let http = new XMLHttp();
+//拦截XMLHttpRequest
+function initXMLHttpRequest() {
+    let open = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (...args) {
+        let send = this.send;
+        let _this = this;
+        let post_data = [];
+        this.send = function (...data) {
+            post_data = data;
+            return send.apply(_this, data);
+        };
+        // 请求前拦截
+        http.request(args);
+
+        this.addEventListener(
+            "readystatechange",
+            function () {
+                if (this.readyState === 4) {
+                    let config = {
+                        url: args[1],
+                        status: this.status,
+                        method: args[0],
+                        data: post_data,
+                    };
+                    // 请求后拦截
+                    http.response({ config, response: this.response });
+                }
+            },
+            false
+        );
+        return open.apply(this, args);
+    };
+}
+(function () {
+    'use strict';
+    http.response = function (res) {
+        if (res.config.url.includes("/x/v2/reply/add")) {
+            setTimeout(() => {
+                chick(res.response)
+            }, 1000);
+        }
+    };
+    initXMLHttpRequest();
+
+    function chick(response_str) {
+        let response_json = JSON.parse(response_str)
+        if (response_json.data.reply.state != 0) {
+            copy_delete_reply(response_json);
+        }
+        else {
+            check_reply(response_json).then((flags) => {
+                if (!flags) {
+                    copy_delete_reply(response_json);
+                }
+            });
+        }
+    }
+
+    function check_reply(response_json) {
+        let api = "https://api.bilibili.com/x/v2/reply/main";
+        let type = response_json.data.reply.type;
+        let oid = response_json.data.reply.oid;
+        let rpid = response_json.data.reply.rpid;
+        let url = `${api}?type=${type}&oid=${oid}&rpid=${rpid}`;
+        let flags = new Promise((resolve, reject) => {
+            fetch(url, {
+                method: 'GET',
+            }).then(res => res.json()).then(res => {
+                res.data.replies.forEach(reply => {
+                    if (reply.rpid == rpid) resolve(true);
+                    else if (reply.replies != null) {
+                        reply.replies.forEach(reply => {
+                            if (reply.rpid == rpid) resolve(true);
+                        })
+                    }
+                    else resolve(false);
+                })
+            })
+        });
+        return flags;
+    }
+
+    function copy_delete_reply(response_json) {
+        let r = confirm(`你的评论：\n${response_json.data.reply.content.message}\n被阿瓦隆屏蔽了,点击确定复制并删除`);
+        if (r) {
+            let api = "https://api.bilibili.com/x/v2/reply/del";
+            let type = response_json.data.reply.type;
+            let oid = response_json.data.reply.oid;
+            let rpid = response_json.data.reply.rpid;
+            let csrf = document.cookie.match(/bili_jct=([^;]+)/)[1];
+            fetch(api, {
+                method: 'POST',
+                body: `type=${type}&oid=${oid}&rpid=${rpid}&csrf=${csrf}`,
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                credentials: "include"
+            }).then(() => {
+                navigator.clipboard.writeText(response_json.data.reply.content.message).then(() => {
+                    setTimeout(() => {
+                        document.getElementsByClassName('hot-sort')[0].click();
+                        setTimeout(() => {
+                            document.getElementsByClassName('new-sort')[0].click();
+                        }, 250);
+                    }, 500);
+                })
+            })
+        }
+    }
+})();
