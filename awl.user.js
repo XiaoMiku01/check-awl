@@ -1,7 +1,8 @@
 // ==UserScript==
 // @name         B站阿瓦隆检测工具
-// @namespace    https://space.bilibili.com/32957695
-// @version      0.1.2
+// @namespace    https://github.com/XiaoMiku01/check-awl
+// @supportURL   https://github.com/XiaoMiku01/check-awl
+// @version      0.1.4
 // @description  用于检查评论是否被阿瓦隆拦截屏蔽
 // @author       晓轩iMIKU
 // @license MIT
@@ -56,31 +57,32 @@ function initXMLHttpRequest() {
     'use strict';
     http.response = function (res) {
         if (res.config.url.includes("/x/v2/reply/add")) {
+            let oid = res.config.data[0].match(/oid=(\d+)/)[1];
             setTimeout(() => {
-                chick(res.response)
+                chick(res.response, oid)
             }, 1000);
         }
     };
     initXMLHttpRequest();
 
-    function chick(response_str) {
+    function chick(response_str, oid) {
         let response_json = JSON.parse(response_str)
         if (response_json.data.reply.state != 0) {
-            copy_delete_reply(response_json);
+            copy_delete_reply(response_json, oid);
         }
         else {
-            check_reply(response_json).then((flags) => {
+            check_reply(response_json, oid).then((flags) => {
                 if (!flags) {
-                    copy_delete_reply(response_json);
+                    copy_delete_reply(response_json, oid);
                 }
             });
         }
     }
 
-    function check_reply(response_json) {
+    function check_reply(response_json, oid) {
         let api = "https://api.bilibili.com/x/v2/reply/main";
         let type = response_json.data.reply.type;
-        let oid = response_json.data.reply.oid;
+        // let oid = response_json.data.reply.oid;
         let rpid = response_json.data.reply.rpid;
         let url = `${api}?type=${type}&oid=${oid}&rpid=${rpid}`;
         let flags = new Promise((resolve, reject) => {
@@ -101,12 +103,12 @@ function initXMLHttpRequest() {
         return flags;
     }
 
-    function copy_delete_reply(response_json) {
-        let r = confirm(`你的评论：\n${response_json.data.reply.content.message}\n被阿瓦隆屏蔽了,点击确定复制并删除`);
+    function copy_delete_reply(response_json, oid) {
+        let r = confirm(`你的评论：\n${response_json.data.reply.content.message}\n被阿瓦隆屏蔽了,点击确定复制并删除\n(长评论小作文可能要过审才能显示，建议小作文显示被屏蔽点取消！！)`);
         if (r) {
             let api = "https://api.bilibili.com/x/v2/reply/del";
             let type = response_json.data.reply.type;
-            let oid = response_json.data.reply.oid;
+            // let oid = response_json.data.reply.oid;
             let rpid = response_json.data.reply.rpid;
             let csrf = document.cookie.match(/bili_jct=([^;]+)/)[1];
             fetch(api, {
