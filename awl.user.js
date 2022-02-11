@@ -2,7 +2,7 @@
 // @name         B站阿瓦隆检测工具
 // @namespace    https://github.com/XiaoMiku01/check-awl
 // @supportURL   https://github.com/XiaoMiku01/check-awl
-// @version      0.1.4
+// @version      0.1.5
 // @description  用于检查评论是否被阿瓦隆拦截屏蔽
 // @author       晓轩iMIKU
 // @license MIT
