@@ -80,7 +80,7 @@ function initXMLHttpRequest() {
     }
 
     function check_reply(response_json, oid) {
-        let api = "https://api.bilibili.com/x/v2/reply/main";
+        let api = "https://api.bilibili.com/x/v2/reply/jump";
         let type = response_json.data.reply.type;
         // let oid = response_json.data.reply.oid;
         let rpid = response_json.data.reply.rpid;
@@ -96,7 +96,7 @@ function initXMLHttpRequest() {
                             if (reply.rpid == rpid) resolve(true);
                         })
                     }
-                    else resolve(false);
+                    // else resolve(false);
                 })
             })
         });
