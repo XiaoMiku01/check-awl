@@ -2,7 +2,7 @@
 // @name         B站阿瓦隆检测工具
 // @namespace    https://github.com/XiaoMiku01/check-awl
 // @supportURL   https://github.com/XiaoMiku01/check-awl
-// @version      0.1.5
+// @version      0.1.6
 // @description  用于检查评论是否被阿瓦隆拦截屏蔽
 // @author       晓轩iMIKU
 // @license MIT
@@ -65,21 +65,19 @@ function initXMLHttpRequest() {
     };
     initXMLHttpRequest();
 
-    function chick(response_str, oid) {
+   async function chick(response_str, oid) {
         let response_json = JSON.parse(response_str)
         if (response_json.data.reply.state != 0) {
             copy_delete_reply(response_json, oid);
         }
         else {
-            check_reply(response_json, oid).then((flags) => {
-                if (!flags) {
-                    copy_delete_reply(response_json, oid);
-                }
-            });
+            const flags =  await check_reply(response_json, oid)
+            if (flags === true) return
+            copy_delete_reply(response_json, oid);
         }
     }
 
-    function check_reply(response_json, oid) {
+function check_reply(response_json, oid) {
         let api = "https://api.bilibili.com/x/v2/reply/jump";
         let type = response_json.data.reply.type;
         // let oid = response_json.data.reply.oid;
@@ -89,15 +87,16 @@ function initXMLHttpRequest() {
             fetch(url, {
                 method: 'GET',
             }).then(res => res.json()).then(res => {
+                var temp = false
                 res.data.replies.forEach(reply => {
-                    if (reply.rpid == rpid) resolve(true);
+                    if (reply.rpid == rpid) temp = true;
                     else if (reply.replies != null) {
                         reply.replies.forEach(reply => {
-                            if (reply.rpid == rpid) resolve(true);
+                            if (reply.rpid == rpid) temp = true;
                         })
                     }
-                    // else resolve(false);
                 })
+            resolve(temp);
             })
         });
         return flags;
